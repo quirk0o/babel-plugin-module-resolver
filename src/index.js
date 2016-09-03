@@ -106,59 +106,56 @@ export default ({ types: t }) => {
         return proxyquireCalleeObject;
     };
 
+    function transformModulePath(module, state, filename) {
+        if (module && module.type === 'StringLiteral') {
+            const modulePath = mapModule(module.value, filename || state.file.opts.filename, state.opts);
+            if (modulePath) {
+                return t.stringLiteral(modulePath);
+            }
+        }
+    }
+
+    function transformCallExpression(nodePath, modulePath) {
+        nodePath.replaceWith(t.callExpression(
+            nodePath.node.callee, [modulePath, ...nodePath.node.arguments.slice(1)]
+        ));
+    }
+
+    function transformObjectExpression(modulePath, object, state,) {
+        const resolved = object.properties.map(property => {
+            const path = transformModulePath(property.key, state, modulePath);
+            if (path) {
+                return t.objectProperty(path, property.value);
+            }
+            return property;
+        });
+
+        return t.objectExpression(resolved);
+    }
+
     function transformRequireCall(nodePath, state) {
         if (!isRequireCall(nodePath)) return;
 
-        const moduleArg = nodePath.node.arguments[0];
-        if (moduleArg && moduleArg.type === 'StringLiteral') {
-            const modulePath = mapModule(moduleArg.value, state.file.opts.filename, state.opts);
-            if (modulePath) {
-                nodePath.replaceWith(t.callExpression(
-                    nodePath.node.callee, [t.stringLiteral(modulePath)]
-                ));
-            }
+        const modulePath = transformModulePath(nodePath.node.arguments[0], state);
+        if (modulePath) {
+            transformCallExpression(nodePath, modulePath);
         }
     }
 
     function transformProxyquireCall(nodePath, state) {
         if (!isProxyquireCall(nodePath)) return;
 
-        const moduleArg = nodePath.node.arguments[0];
+        const modulePath = transformModulePath(nodePath.node.arguments[0], state);
 
-        if (moduleArg && moduleArg.type === 'StringLiteral') {
-            const modulePath = mapModule(moduleArg.value, state.file.opts.filename, state.opts);
-            if (modulePath) {
-                const stubsArg = nodePath.node.arguments[1];
+        if (modulePath) {
+            const stubsArg = nodePath.node.arguments[1];
+            let args = [modulePath];
 
-                if (stubsArg && t.isObjectExpression(stubsArg)) {
-                    const resolvedStubs = stubsArg;
-
-                    resolvedStubs.properties = stubsArg.properties.map(property => {
-                        const stubModule = property.key;
-                        if (stubModule && stubModule.type === 'StringLiteral') {
-                            const stubModulePath = mapModule(stubModule.value, modulePath, state.opts);
-                            if (stubModulePath) {
-                                return t.objectProperty(t.stringLiteral(stubModulePath), property.value);
-                            }
-                        }
-                        return property;
-                    });
-                    nodePath.replaceWith(t.callExpression(
-                        nodePath.node.callee, [
-                            t.stringLiteral(modulePath),
-                            resolvedStubs,
-                            ...nodePath.node.arguments.slice(2)
-                        ]
-                    ));
-                } else {
-                    nodePath.replaceWith(t.callExpression(
-                        nodePath.node.callee, [
-                            t.stringLiteral(modulePath),
-                            ...nodePath.node.arguments.slice(1)
-                        ]
-                    ));
-                }
+            if (stubsArg && t.isObjectExpression(stubsArg)) {
+                args.push(transformObjectExpression(modulePath.value, stubsArg, state));
             }
+            args = args.concat(nodePath.node.arguments.slice(2));
+            nodePath.replaceWith(t.callExpression(nodePath.node.callee, args));
         }
     }
 
@@ -167,15 +164,9 @@ export default ({ types: t }) => {
     }
 
     function transformImportCall(nodePath, state) {
-        const moduleArg = nodePath.node.source;
-        if (moduleArg && moduleArg.type === 'StringLiteral') {
-            const modulePath = mapModule(moduleArg.value, state.file.opts.filename, state.opts);
-            if (modulePath) {
-                nodePath.replaceWith(t.importDeclaration(
-                    nodePath.node.specifiers,
-                    t.stringLiteral(modulePath)
-                ));
-            }
+        const modulePath = transformModulePath(nodePath.node.source, state);
+        if (modulePath) {
+            nodePath.replaceWith(t.importDeclaration(nodePath.node.specifiers, modulePath));
         }
     }
 
