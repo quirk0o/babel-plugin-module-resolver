@@ -90,9 +90,8 @@ export default ({ types: t }) => {
             return true;
         }
 
-        if (!t.isMemberExpression(nodePath.node.callee) ||
-            !t.isIdentifier(nodePath.node.callee.property, { name: 'load' }) ||
-            !t.isCallExpression(nodePath.node.callee.object)) {
+        if (!t.isMemberExpression(nodePath.node.callee) || !t.isIdentifier(nodePath.node.callee.property,
+                { name: 'load' }) || !t.isCallExpression(nodePath.node.callee.object)) {
             return false;
         }
 
@@ -129,9 +128,36 @@ export default ({ types: t }) => {
         if (moduleArg && moduleArg.type === 'StringLiteral') {
             const modulePath = mapModule(moduleArg.value, state.file.opts.filename, state.opts);
             if (modulePath) {
-                nodePath.replaceWith(t.callExpression(
-                    nodePath.node.callee, [t.stringLiteral(modulePath), ...nodePath.node.arguments.slice(1)]
-                ));
+                const stubsArg = nodePath.node.arguments[1];
+
+                if (stubsArg && t.isObjectExpression(stubsArg)) {
+                    const resolvedStubs = stubsArg;
+
+                    resolvedStubs.properties = stubsArg.properties.map(property => {
+                        const stubModule = property.key;
+                        if (stubModule && stubModule.type === 'StringLiteral') {
+                            const stubModulePath = mapModule(stubModule.value, modulePath, state.opts);
+                            if (stubModulePath) {
+                                return t.objectProperty(t.stringLiteral(stubModulePath), property.value);
+                            }
+                        }
+                        return property;
+                    });
+                    nodePath.replaceWith(t.callExpression(
+                        nodePath.node.callee, [
+                            t.stringLiteral(modulePath),
+                            resolvedStubs,
+                            ...nodePath.node.arguments.slice(2)
+                        ]
+                    ));
+                } else {
+                    nodePath.replaceWith(t.callExpression(
+                        nodePath.node.callee, [
+                            t.stringLiteral(modulePath),
+                            ...nodePath.node.arguments.slice(1)
+                        ]
+                    ));
+                }
             }
         }
     }
