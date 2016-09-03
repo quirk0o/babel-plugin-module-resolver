@@ -19,6 +19,13 @@ describe('module-resolver', () => {
             assert.strictEqual(result.code, `var something = proxyquire("${output}");`);
         });
 
+        it('with a proxyquire with stubs statement', () => {
+            const code = `var something = proxyquire("${source}", {});`;
+            const result = transform(code, transformerOpts);
+
+            assert.strictEqual(result.code, `var something = proxyquire("${output}", {});`);
+        });
+
         it('with a proxyquire load statement', () => {
             const code = `var something = proxyquire.load("${source}");`;
             const result = transform(code, transformerOpts);
