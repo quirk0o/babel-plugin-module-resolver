@@ -15,7 +15,8 @@ import MyUtilFn from '../../../../utils/MyUtilFn';
 import MyUtilFn from 'utils/MyUtilFn';
 ```
 _Note:_ It also works with `require()`, and you can alias a NPM module.
-_Note:_ Now also works with `proxyquire()`!
+
+_Note 2:_ Now also works with `proxyquire()`!
 
 ## Usage
 
