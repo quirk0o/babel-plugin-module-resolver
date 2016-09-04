@@ -115,10 +115,9 @@ export default ({ types: t }) => {
         }
     }
 
-    function transformCallExpression(nodePath, modulePath) {
-        nodePath.replaceWith(t.callExpression(
-            nodePath.node.callee, [modulePath, ...nodePath.node.arguments.slice(1)]
-        ));
+    function transformCallExpression(nodePath, modulePath, restArgsIndex = 1, args) {
+        args = args ? [modulePath, ...args] : [modulePath, ...nodePath.node.arguments.slice(restArgsIndex)];
+        nodePath.replaceWith(t.callExpression(nodePath.node.callee, args));
     }
 
     function transformObjectExpression(modulePath, object, state,) {
@@ -149,13 +148,11 @@ export default ({ types: t }) => {
 
         if (modulePath) {
             const stubsArg = nodePath.node.arguments[1];
-            let args = [modulePath];
-
             if (stubsArg && t.isObjectExpression(stubsArg)) {
-                args.push(transformObjectExpression(modulePath.value, stubsArg, state));
+                const resolvedStubs = transformObjectExpression(modulePath.value, stubsArg, state);
+                transformCallExpression(nodePath, modulePath, 2, [resolvedStubs]);
             }
-            args = args.concat(nodePath.node.arguments.slice(2));
-            nodePath.replaceWith(t.callExpression(nodePath.node.callee, args));
+            transformCallExpression(nodePath, modulePath);
         }
     }
 
