@@ -139,11 +139,11 @@ describe('module-resolver', () => {
 
         describe('with proxyquire import', () => {
             it('should resolve stub paths', () => {
-                const code = `var something = proxyquire("c1", { "c2": stub });`;
+                const code = 'var something = proxyquire("c1", { "c2": stub });';
                 const result = transform(code, transformerOpts);
 
                 assert.strictEqual(result.code,
-                    `var something = proxyquire("./test/examples/components/c1", {\n  "./c2": stub\n});`);
+                    'var something = proxyquire("./test/examples/components/c1", {\n  "./c2": stub\n});');
             });
         });
     });

@@ -113,18 +113,19 @@ export default ({ types: t }) => {
                 return t.stringLiteral(modulePath);
             }
         }
+        return null;
     }
 
     function transformCallExpression(nodePath, modulePath, restArgsIndex = 1, args) {
-        args = args ? [modulePath, ...args] : [modulePath, ...nodePath.node.arguments.slice(restArgsIndex)];
-        nodePath.replaceWith(t.callExpression(nodePath.node.callee, args));
+        const callArgs = args ? [modulePath, ...args] : [modulePath, ...nodePath.node.arguments.slice(restArgsIndex)];
+        nodePath.replaceWith(t.callExpression(nodePath.node.callee, callArgs));
     }
 
-    function transformObjectExpression(modulePath, object, state,) {
+    function transformObjectExpression(modulePath, object, state) {
         const resolved = object.properties.map(property => {
-            const path = transformModulePath(property.key, state, modulePath);
-            if (path) {
-                return t.objectProperty(path, property.value);
+            const propPath = transformModulePath(property.key, state, modulePath);
+            if (propPath) {
+                return t.objectProperty(propPath, property.value);
             }
             return property;
         });
